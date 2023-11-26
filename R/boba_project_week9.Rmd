@@ -1,0 +1,98 @@
+---
+title: "boba_project_week9"
+output: html_document
+date: "2023-10-14"
+---
+
+#Let's look into our visuals some more
+#Create Boxplots
+```{r}
+nyc_raleigh_final_comb<- read.csv("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/combined_data.csv")
+#rough draft boxplot
+rough_plot <- ggplot( data= nyc_raleigh_final_comb, aes( x = source, y = Rating ) ) + geom_boxplot( colour="black", fill="orange", outlier.colour="blue", outlier.shape=1 )
+ggsave("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/rough_boxplot.png", plot = rough_plot, width = 6, height = 4, dpi = 300)
+rough_plot 
+```
+
+
+```{r}
+#final draft boxplot
+box <- ggplot(data = nyc_raleigh_final_comb, aes(x = source, y = Rating))
+# Add the boxplot layer
+box <- box + geom_boxplot(width = 0.2, color = "black", fill = "white")
+# Add the dotplot layer
+final_plot <- box + geom_dotplot(aes(fill = source), binaxis = "y", stackdir = "center", method = "histodot", binwidth = 0.1, dotsize = 0.75)
+final_plot
+ggsave("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/final_boxplot.png", plot = final_plot, width = 6, height = 4, dpi = 300)
+```
+
+#Make indicator var for restaurants
+```{r}
+nyc_raleigh_final_comb$Wifi<- NULL
+nyc_raleigh_final_comb <- nyc_raleigh_final_comb %>% 
+  mutate(Restaurant = ifelse(Authenticity == "Restaurant", 1, 0))
+nyc_raleigh_final_comb$Authenticity[nyc_raleigh_final_comb$Name== "Tiger Hill"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name== "Max Bakery"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Oriental Pho"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Grand Asia Market"] <-1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Bep Vietnamese Kitchen"] <-1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Sweet Cats Cafe"] <-1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="39 Kings Cafe"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Anda Cafe"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Crepe N Tearia"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Pho Oxtail"] <- 1
+nyc_raleigh_final_comb$Restaurant[nyc_raleigh_final_comb$Name=="Quickly-Morrisville"] <- 1
+nyc_raleigh_final_comb$Restaurant[is.na(nyc_raleigh_final_comb$Restaurant)] <- 0
+nyc_raleigh_final_comb$Restaurant
+final_all<- nyc_raleigh_final_comb[nyc_raleigh_final_comb$Name != "Bowlba Cafe",]
+#final_all<- data.table(final_all)
+write.csv(final_all, "/Users/violetevans/Documents/side project/boba_yelp_fall/Data/final_all.csv", row.names = FALSE)
+```
+
+#I need to bind the 4 shops we manually input that was not found in Yelp
+#These are our favorite places!
+```{r}
+#I might need to resplit final_all
+last_row<- tail(final_all, n=4)
+slide_final<- rbind(final_all, last_row, fill= TRUE)
+write.csv(slide_final, "/Users/violetevans/Documents/side project/boba_yelp_fall/Data/final_all.csv", row.names = FALSE)
+head(slide_final)
+```
+
+  
+```{r}
+nyc <- slide_final$Rating[slide_final$source == "nyc_boba"]
+length(nyc)
+#71
+raleigh <- slide_final$Rating[slide_final$source == "raleigh_boba"]
+length(raleigh)
+#52
+#two groups with unequal sample sizes
+diff_mean<- mean(nyc) - mean(raleigh)
+diff_mean
+#0.342091
+```
+
+
+#Statistical 
+```{r}
+#no normality
+#equal variance
+var.test(Rating ~ source, data = nyc_raleigh_final_comb)
+#diff in groups by rating
+wilcox_result <- wilcox.test(nyc, raleigh, alternative= "two.sided", correct= TRUE)
+wilcox_result
+#since we have diff sample sizes, i want to know how much effect i can have
+n1 <- 71
+n2 <- 52
+# Extract the test statistic from the result
+W <- wilcox_result$statistic
+# pearson's r ranges from 0 to 1
+r <- 1 -(2*W)/(n1*n2)
+# Print the effect size
+cat("Effect Size (r):", r, "\n")
+# Large effect
+```
+
+
+

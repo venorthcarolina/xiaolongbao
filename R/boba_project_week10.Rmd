@@ -1,0 +1,110 @@
+---
+title: "boba_project_week10"
+output: html_document
+date: "2023-10-20"
+---
+
+#Another week, another working session
+```{r}
+library(car)
+library(dplyr)
+final_all<- read.csv("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/final_all.csv")
+head(final_all)
+summary(final_all)
+final_all$Transactions<- NULL
+```
+
+#Maybe we'll do something with review count, maybe not
+```{r}
+nyc<- final_all[final_all$source=="nyc_boba",]
+nyc_rating <- final_all$Rating[final_all$source == "nyc_boba"]
+#70
+raleigh<- final_all[final_all$source=="raleigh_boba",]
+raleigh_rating<- final_all$Rating[final_all$source == "raleigh_boba"]
+#44
+#two groups with unequal sample sizes
+diff_mean<- mean(nyc_rating) - mean(raleigh_rating)
+diff_mean
+result <- final_all %>%
+  filter(source %in% c("raleigh_boba", "nyc_boba")) %>%
+  group_by(source) %>%
+  summarise(total_review_count = sum(Review.Count))
+print(result)
+```
+
+
+#Statistical 
+```{r}
+shapiro_result_nyc <- shapiro.test(nyc$Rating)
+print(shapiro_result_nyc)
+shapiro_result_ral <- shapiro.test(raleigh$Rating)
+print(shapiro_result_ral)
+#no normality because small sample size
+var.test(Rating ~ source, data = final_all)
+#we see equal variance
+#welch's: normality, no equal var, ind of obs
+grouped_data <- final_all %>%
+  group_by(source) %>%
+  summarise(variance = var(Rating, na.rm= TRUE))
+
+welch_result <- t.test(nyc$Rating, raleigh$Rating, var.equal = TRUE)
+welch_result
+```
+
+
+#Making categories for RALEIGH
+```{r}
+all_cat<- unlist(strsplit(final_all$Categories, ","))
+all_cat<- str_trim(all_cat)
+unique(all_cat)
+#26 unique categories
+clean_names <-janitor::make_clean_names(unique(all_cat))
+var <- paste0(clean_names,"_ind")
+
+mat<- matrix(0, nrow(final_all), 26)
+colnames(mat)<- var
+df <- data.frame(mat)
+final_all_ind<- cbind(final_all, df)
+final_all_ind$Price<- NULL
+final_all_ind<-final_all_ind[-c(111),]
+```
+
+#GRAND ASIA
+```{r}
+final_all_ind$Address[final_all_ind$Name== "Grand Asia Market"] <- "1253 Buck Jones Rd, Raleigh, NC 27606"
+final_all_ind$Latitude[final_all_ind$Name== "Grand Asia Market"] <- 35.7658597888147
+final_all_ind$Longitude[final_all_ind$Name== "Grand Asia Market"] <-78.7399731102378
+final_all_ind$Reviews[final_all_ind$Name== "Grand Asia Market"] <- c('My opinions, and experiences \n* I love it when everything in this store is stocked, and organized.\n* I loved their hotdogs in their bakery.\n* I love the...', 'Well stocked and well organized if you are familiar with their setup. Hard to find help if you are not familiar and if you find someone it is hard to...', "Came here for the bakery only. \n\nIt's a fairly unremarkable strip mall setting belying a bright kitschy interior, but a fun experience all the...")
+```
+
+#BUMBLE TEA
+```{r}
+final_all_ind$Address[final_all_ind$Name== "Bumble Tea"] <- "3221 Avent Ferry Rd, Raleigh, NC 27606"
+final_all_ind$Latitude[final_all_ind$Name== "Bumble Tea"] <- 35.7676822862029
+final_all_ind$Longitude[final_all_ind$Name== "Bumble Tea"] <-78.6957909846558
+final_all_ind$Reviews[final_all_ind$Name== "Bumble Tea"] <- c('Was here for an event they hosted. Super cute space and amazing teas! Got the fresh pressed sugar cane tea. \n\nSuper nice', "I've probably been here over a dozen times in the past few months and have had a great experience every time. The prices are very affordable and their...", 'Super cute interior with fun drinks! \nThe music is always nice and the staff is very sweet!')
+```
+
+#Tea Hill
+```{r}
+final_all_ind$Address[final_all_ind$Name== "Tea Hill"] <- "318 W Franklin St, Chapel Hill, NC 27516"
+final_all_ind$Latitude[final_all_ind$Name== "Tea Hill"] <- 35.91162
+final_all_ind$Longitude[final_all_ind$Name== "Tea Hill"] <-79.06072
+final_all_ind$Reviews[final_all_ind$Name== "Tea Hill"] <- c('The place is SO cute! Workers are also really nice. This is my go to place for boba on Franklin street. They are very aware when you ask for less ice/less...', 'Amazing! Got the jasmine green milk tea with regular sugar (100%) and it was sweet but not over bearingly sweet. The tea flavor was delishhh as well. The..., "I love coming to Chapel Hill for food and the vibes, and Tea Hill was no exception. Its a great little location to sit and relax at with friends and is in...')
+```
+
+#all chain
+```{r}
+final_all_ind$chain[final_all_ind$Name== "Grand Asia Market"] <- 0
+final_all_ind$chain[final_all_ind$Name== "Tea Hill"] <- 0
+final_all_ind$chain[final_all_ind$Name== "Bumble Tea"] <- 0
+
+write.csv(final_all_ind, "/Users/violetevans/Documents/side project/final_all_ind.csv", row.names = FALSE)
+
+
+colnames(raleigh)
+raleigh_lm <- lm(factor(Rating) ~ Name + Address + factor(City) + factor(Categories) + Review.Count + factor(Authenticity) + factor(Restaurant) + factor(chain), data = grouped_data)
+
+anova(raleigh_lm)
+
+```

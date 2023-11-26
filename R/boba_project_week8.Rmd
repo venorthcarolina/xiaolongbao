@@ -1,0 +1,239 @@
+---
+title: "boba_project_week8"
+output: html_document
+date: "2023-10-09"
+---
+
+#each location has a separate csv, and their mean ratings seem to be different
+```{r }
+library(tidyverse)
+library(arsenal)
+library(DescTools)
+getwd()
+nyc_boba<- read.csv("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/nyc_boba_shops-2.csv")
+raleigh_boba<- read.csv("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/boba_manual.csv")
+head(nyc_boba)
+head(raleigh_boba)
+mean(nyc_boba$Rating)
+#3.848315
+mean(raleigh_boba$Rating)
+#4.214286
+```
+
+#Let's visualize the differences
+```{r}
+boxplot(Rating ~ Authenticity, data = raleigh_boba, 
+        main = "Boxplot of Raleigh Boba by Authenticity",
+        xlab = "Authenticity",
+        ylab = "Rating",
+        col = c("skyblue", "salmon"),
+        border = "black")
+```
+
+#We need to make each of Yelp's automatic 3 catgeories split into new binary categories
+```{r}
+nyc_boba <- nyc_boba[grepl("Bubble Tea", nyc_boba$Categories, ignore.case = TRUE), ]
+all_cat<- unlist(strsplit(nyc_boba$Categories, ","))
+all_cat<- str_trim(all_cat)
+unique(all_cat)
+#29 unique category names
+
+clean_names <-janitor::make_clean_names(unique(all_cat))
+var <- paste0(clean_names,"_ind")
+#var has 18 names for indicators
+
+mat= matrix(0, nrow(nyc_boba), 29)
+colnames(mat)<- var
+df <- data.frame(mat)
+nyc_indicator<- cbind(nyc_boba, df)
+
+full_names<- unique(all_cat)
+for (i in seq_along(1:29)){
+  for (j in 1:nrow(nyc_indicator)){
+    nyc_indicator[[var[i]]][j]=grepl(full_names[i], nyc_indicator$Categories[j])
+  }
+}
+#write it out as a new file
+write.csv(nyc_indicator, "/Users/violetevans/Documents/side project/boba_yelp_fall/Data/nyc_boba1.csv", row.names = FALSE)
+```
+
+#Visualize assumptions
+```{r}
+final_nyc<- read.csv("/Users/violetevans/Documents/side project/boba_yelp_fall/Data/nyc_boba1.csv")
+#check normality- no normality 
+ggplot(data = final_nyc, aes(sample = Rating, color= City)) + stat_qq() + stat_qq_line()
+ggplot(data = raleigh_boba, aes(sample = Rating, color= City)) + stat_qq() + stat_qq_line()
+
+comparedf(final_nyc, raleigh_boba)
+#Shared: 8 non-by variables and 49 observations.
+#Not shared: 34 variables and 40 observations.
+```
+
+#Histogram
+```{r}
+ggplot(data = final_nyc) + geom_histogram(mapping = aes(x = Rating)) + labs(x = "Rating Counts (NYC)")
+ggplot(data = raleigh_boba) + geom_histogram(mapping = aes(x = Rating)) + labs(x = "Rating Counts (Raleigh)")
+ggplot(final_nyc, aes(x = Rating)) + geom_histogram(aes(y = ..density..), alpha = 0.5) + geom_density(alpha = 0.2) + labs(x = "Rating Counts (NYC), Density Plot")
+ggplot(raleigh_boba, aes(x = Rating)) + geom_histogram(aes(y = ..density..), alpha = 0.5) + geom_density(alpha = 0.2) + labs(x = "Rating Counts (Raleigh), Density Plot")
+#Underlying distributions look different
+```
+
+
+```{r}
+library(ggplot2)
+percentage_authenticity <- (sum(raleigh_boba$Authenticity == 1) / nrow(raleigh_boba)) * 100
+# Print the result
+cat("Percentage of Authenticity:", percentage_authenticity, "%\n")
+#53.06122 % for raleigh
+```
+
+#QQ Plot, CI, GROUP MEDIAN
+```{r}
+ggplot(data = final_nyc, aes(sample = Rating)) + stat_qq() + stat_qq_line()
+ggplot(data = raleigh_boba, aes(sample = Rating)) + stat_qq() + stat_qq_line()
+
+#CI NYC  1.98729, Raleigh 2.010635
+qt(.025, nrow(final_nyc) - 1, lower.tail=F)
+qt(.025, nrow(raleigh_boba) - 1, lower.tail=F)
+
+AppendMe <- function(dfNames) {
+  dfs <- list()
+  for (x in dfNames) {
+    df <- get(x)
+    df$source <- x
+    dfs <- append(dfs, list(df))
+  }
+  combined_df <- bind_rows(dfs)
+  return(combined_df)
+}
+# Example usage
+combined_data <- AppendMe(c("nyc_boba", "raleigh_boba"))
+combined_data$Wifi<- NULL
+combined_data$Hours<- NULL
+combined_data$Rating <- factor(combined_data$Rating)
+write.csv(combined_data, "/Users/violetevans/Documents/side project/boba_yelp_fall/Data/combined_data.csv", row.names = FALSE)
+head(combined_data)
+```
+
+#Let's manually impute authenticity based on our previous boba knowledge
+```{r}
+combined_data$Authenticity[combined_data$Name== "Chun Yang Tea"]  <- 1
+combined_data$Authenticity[combined_data$Name== "Xing Fu Tang"]<- 1
+combined_data$Authenticity[combined_data$Name== "The Alley"]<- 0
+combined_data$Authenticity[combined_data$Name== "Partea NYC - Flushing"]<- 0
+combined_data$Authenticity[combined_data$Name== "Song Tea"]<- 0
+combined_data$Authenticity[combined_data$Name== "Tiger Sugar"]<- 0
+combined_data$Authenticity[combined_data$Name== "Möge Tee - Flushing"]<- 0
+combined_data$Authenticity[combined_data$Name== "Yi Fang Taiwan Fruit Tea"]<- 1
+combined_data$Authenticity[combined_data$Name== "Zaza Tea"]<- 0
+combined_data$Authenticity[combined_data$Name=="The Yunique Tea"] <- 0
+combined_data$Authenticity[combined_data$Name=="Teazzi Tea Shop"] <- 0
+combined_data$Authenticity[combined_data$Name=="Sweet Cake"] <- 0
+combined_data$Authenticity[combined_data$Name=="CoCo Fresh Tea & Juice"] <- 1
+combined_data<- combined_data[combined_data$Name !="Mumu Sweets",] 
+combined_data$Authenticity[combined_data$Name=="Coffee Story"] <- 0
+combined_data$Authenticity[combined_data$Name=="Yomie's Rice x Yogurt"] <- 1
+combined_data$Authenticity[combined_data$Name=="Machi Machi"] <- 0
+combined_data$Authenticity[combined_data$Name=="Möge Tee"] <- 1
+combined_data$Authenticity[combined_data$Name== "TSAôCAA"] <- 1
+combined_data$Authenticity[combined_data$Name== "M Tea"] <- 0
+combined_data$Authenticity[combined_data$Name== "Bingling Tea"] <- 1
+combined_data$Authenticity[combined_data$Name== "Gong Cha"] <- 1
+combined_data$Authenticity[combined_data$Name== "Kung Fu Tea"] <- 0
+combined_data$Authenticity[combined_data$Name== "Sweet Cats Cafe"] <- 1
+combined_data$Authenticity[combined_data$Name== "Yaya Tea - Flushing"] <- 0
+combined_data<- combined_data[combined_data$Name !="Mango Mango Dessert",] 
+combined_data$Authenticity[combined_data$Name== "Happy Lemon"] <- 0
+combined_data$Authenticity[combined_data$Name== "Yan Yan Tea"]<- 1
+combined_data$Authenticity[combined_data$Name== "I’Milky 沐白 - Flushing"] <- 1
+combined_data$Authenticity[combined_data$Name== "Möge Tee"] <- 1
+combined_data$Authenticity[combined_data$Name== "Meet Fresh"] <- 1
+combined_data$Authenticity[combined_data$Name== "The Whale Tea"] <- 1
+combined_data<- combined_data[combined_data$Name !="MOCHII",] 
+combined_data<- combined_data[combined_data$Name !="Duomi Rice Yogurt House",] 
+combined_data$Authenticity[combined_data$Name== "The Whale Tea"] <- 1
+combined_data$Authenticity[combined_data$Name== "Tiger Hill"] <- 0
+combined_data<- combined_data[combined_data$Name !="520 Dessert", ]
+combined_data$Authenticity[combined_data$Name== "Momo Ashi"] <- 0
+combined_data$Authenticity[combined_data$Name== "Snack Mood"] <-0
+combined_data$Authenticity[combined_data$Name== "Coconut&More"] <- 0
+combined_data$Authenticity[combined_data$Name== "Cafe Toast"] <- 0
+combined_data$Authenticity[combined_data$Name== "Vivi Bubble Tea"] <- 1
+combined_data$Authenticity[combined_data$Name== "39 Kings Cafe"] <- 1
+combined_data$Authenticity[combined_data$Name== "Anda Cafe"] <- 0
+combined_data$Authenticity[combined_data$Name== "Coco Fresh Tea & Juice"] <- 1
+combined_data$Authenticity[combined_data$Name== "Nuan Xin Rice Roll 暖心飯糰"] <- 1
+combined_data$Authenticity[combined_data$Name== "TBaar"] <- 0
+combined_data$Authenticity[combined_data$Name== "MÖGE TEE Forest Hills"] <- 1
+combined_data$Authenticity[combined_data$Name== "Flower Bloom Tea"] <- 1
+combined_data<- combined_data[combined_data$Name !="Nai Brother", ]
+combined_data<- combined_data[combined_data$Name !="Qiu Sushi and Tea Bar", ]
+combined_data<- combined_data[combined_data$Name !="Rainbow Bakery", ]
+combined_data$Authenticity[combined_data$Name== "Q Bubble"] <- 0
+combined_data<- combined_data[combined_data$Name != "Mask Hotpot Galatea",]
+combined_data<- combined_data[combined_data$Name != "Bake Culture",]
+combined_data<- combined_data[combined_data$Name != "TKK Fried Chicken Queens Crossing",]
+combined_data$Authenticity[combined_data$Name== "C Fruit Life"] <-1
+combined_data<- combined_data[combined_data$Name != "Chakra Japanese Fusion",]
+combined_data<- combined_data[combined_data$Name != "Pata Cafe",]
+combined_data$Authenticity[combined_data$Name== "Meadows Cafe"] <- 0
+combined_data<- combined_data[combined_data$Name != "Sunshine Cafe",]
+combined_data$Authenticity[combined_data$Name== "Kissena Cafe"] <- 1
+combined_data$Authenticity[combined_data$Name== "U-Crew Thai Creamery & Tea"] <- 0
+combined_data$Authenticity[combined_data$Name== "Crepe N Tearia"] <- 0
+combined_data$Authenticity[combined_data$Name== "Black Sheep Coffee House"] <- 0
+combined_data$Authenticity[combined_data$Name== "Little Starry Cafe"] <- 0
+combined_data$Authenticity[combined_data$Name== "Teaporation"] <- 1
+combined_data$Authenticity[combined_data$Name== "Max Bakery"] <- 1
+combined_data<- combined_data[combined_data$Name != "Rainbow Cakes & Donuts",]
+combined_data<- combined_data[combined_data$Name != "Milk Tea House",]
+combined_data$Authenticity[combined_data$Name== "One Nice Tea"] <-1
+combined_data$Authenticity[combined_data$Name== "Tbaar"] <- 0
+combined_data<-combined_data
+combined_data$Authenticity[combined_data$Name== "Bing Ling Tea"] <- 1
+combined_data$Authenticity[combined_data$Name== "YanYan Tea"] <- 1
+combined_data$Authenticity[combined_data$Name== "Meet Fresh"] <- 1
+combined_data$Authenticity <- tidyr::replace_na(combined_data$Authenticity, 1)
+combined_data<- combined_data[combined_data$Name !="QBubble",] 
+combined_data<- combined_data[combined_data$Name !="Mochii",] 
+na_rows <- combined_data[is.na(combined_data$Authenticity),]
+combined_data$Wifi<- NULL
+combined_data$chain <- as.integer(duplicated(combined_data$Name)| grepl("-", combined_data$Name))
+combined_data$Authenticity <- unlist(combined_data$Authenticity)
+write.csv(combined_data, "/Users/violetevans/Documents/side project/boba_yelp_fall/Data/combined_data.csv", row.names = FALSE)
+```
+
+#Boxplot
+```{r}
+boxplot(Rating ~ source, data = combined_data)
+```
+
+
+#Wilcoxon Rank Sum/ Mann Whitney for unpaired two sample t-test, non normal data
+```{r}
+group1 <- combined_data$Rating[combined_data$source == "nyc_boba"]
+group2 <- combined_data$Rating[combined_data$source == "raleigh_boba"]
+
+wilcox.test(group1, group2, alternative= "two.sided", correct= TRUE)
+#Wilcoxon rank sum test with continuity correction
+#data:  group1 and group2
+#W = 1354, p-value = 0.0001529
+#alternative hypothesis: true location shift is not equal to 0
+```
+
+#F test to compare 2 variances
+```{r}
+#Ho: variances are equal to 1
+#Ha: variances are not equal to 1
+var.test(Rating ~ source, data = combined_data)
+#contains 1,  ratio of variances 1.219155 
+#equal variances!!
+fligner.test(Rating ~ source, data = combined_data)
+#support this
+```
+
+#Specific Equal Var Test
+```{r}
+kruskal.test(Rating ~ source, data = combined_data)
+#statistically sig differences between groups
+```
