@@ -13,4 +13,5 @@ We performed the following:
 - Chose Yelp API parameters for the type of review and location.
 - Used longitude/latitude information in Tableau.
 - Presented our statistical findings on October 30th, 2023 at the Institute for Advanced Analytics.
-I hope you enjoy reading about our work!
+  
+The home page of the Xiaolongbao directory holds our Bookdown website- we hope you enjoy reading about our work!
