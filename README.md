@@ -1,4 +1,5 @@
 # xiaolongbao
+## Repository Organization
 Hi, welcome to Violet and Gloria's MSA 2024 Fall Side Project. I hope you enjoy reading about our work!
 Add structure and context. 
 
