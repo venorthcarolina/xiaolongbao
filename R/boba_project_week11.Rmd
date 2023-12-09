@@ -4,13 +4,18 @@ output: html_document
 date: "2023-10-22"
 ---
 
+#Import data
 ```{r}
 library(stringr)
 library(dplyr)
 #this dataset was scraped to include reviews, longitudes, and latitudes
 predictors <- read.csv("/Users/violetevans/xiaolongbao/Data/all_logi.csv")
 length(predictors)
+View(predictors$Rating)
+```
 
+#creating NYC data frame feature columns
+```{r}
 nyc<- predictors[predictors$source=="nyc_boba", 1:15]
 rownames(nyc) <- 1:nrow(nyc)
 nyc_rating <- predictors$Rating[predictors$source == "nyc_boba"]
@@ -38,6 +43,15 @@ missing_counts
 nyc_df$bubble_tea_ind<- NULL
 nyc_df$Phone <- NULL
 nyc_df$Categories<- NULL
+nyc_df$Street.Address <- NULL
+nyc_df$Address<- NULL
+#The columns with binary values should become factors
+nyc_df[,c(3,11:30)]<- lapply(nyc_df[,c(3,11:30)], function(col) factor(col))
+#Make columns their appropriate types
+nyc_df$Rating <- as.numeric(nyc_df$Rating)
+nyc_df$Authenticity <- as.numeric(nyc_df$Authenticity)
+nyc_df$Restaurant <- as.numeric(nyc_df$Restaurant)
+nyc_df$chain <- as.numeric(nyc_df$chain)
 ```
 
 
@@ -66,6 +80,8 @@ for (i in seq_along(1:16)){
 raleigh_df$bubble_tea_ind<- NULL
 raleigh_df$Phone <- NULL
 raleigh_df$Categories<- NULL
+raleigh_df$Address <- NULL
+raleigh_df$Street.Address <- NULL
 #Let's check missing counts before building linear regression
 missing_counts <- colSums(is.na(raleigh_df))
 missing_counts
@@ -77,47 +93,60 @@ for (col in colnames(raleigh_df)){
     raleigh_df[[col]]<- ifelse(is.na(raleigh_df[[col]]),"M", raleigh_df[[col]])
   }  
 }
+#Make columns their appropriate types
+# Assuming your_factor is the factor variable
+raleigh_df$Rating <- as.numeric(raleigh$Rating)
+raleigh_df$Authenticity <- as.numeric(raleigh_df$Authenticity)
+raleigh_df$Restaurant <- as.numeric(raleigh_df$Restaurant)
+raleigh_df$chain<- as.numeric(raleigh_df$chain)
 ```
-#Now we have completed Raleigh and NYC data frames with all columns,including binary indicator variables
+#Now we have completed Raleigh and NYC data frames with all columns, including binary indicator variables
 
 #NYC Variable Selection
 ```{r}
-#The columns with binary values should become factors
-nyc_df[,c(3,13:33)]<- lapply(nyc_df[,c(3,13:32)], function(col) factor(col))
-#Rating should be numeric
-nyc_df$Rating <- as.numeric(nyc_df$Rating)
-
+nyc_df[, c(9:30)] <- lapply(nyc_df[, c(9:30)], function(col) factor(col))
 #Do forward selection for the columns that explain rating
-full.model.nyc <- lm(Rating ~  ., data = nyc_df[,c(2, 11:32)])
-empty.model.nyc <- lm(Rating ~ 1, data = nyc_df[,c(2,13:32)])
+full.model.nyc <- lm(Rating ~  ., data = nyc_df[,c(2, 9:30)])
+empty.model.nyc <- lm(Rating ~ 1, data = nyc_df[,c(2,9:30)])
 for.model.nyc <- step(empty.model.nyc, scope = list(lower = empty.model.nyc, upper = full.model.nyc), direction = "forward", k = 2)
 step.model.nyc <- step(empty.model.nyc, scope = list(lower = empty.model.nyc, upper = full.model.nyc), direction = "both", k = 2) 
-```
-
-#Random Forest Predictions for NYC
-```{r}
-library(randomForest)
-set.seed(12345)
-rf.ames <- randomForest(Rating ~ ., data = nyc_df, ntree = 250, importance = TRUE)
-
-varImpPlot(rf.ames,
-           sort = TRUE,
-           n.var = 10,
-           main = "Top 10 - Variable Importance", type = 1)
 ```
 
 
 #Raleigh Variable Selection 
 ```{r}
 #Make the binary columns 13 to 31 as factors
-raleigh_df[, c(13:29)] <- lapply(raleigh_df[, c(13:29)], function(col) factor(col))
+raleigh_df[, c(9:27)] <- lapply(raleigh_df[, c(9:27)], function(col) factor(col))
 #Rating should be numeric
 raleigh_df$Rating <- as.numeric(raleigh_df$Rating)
-
-full.model <- lm(Rating ~  ., data = raleigh_df[,c(2,11:29)])
-empty.model <- lm(Rating ~ 1, data = raleigh_df[,c(2,11:29)])
+raleigh_df$random <- NULL
+full.model <- lm(Rating ~  ., data = raleigh_df[,c(2,4:5,9:26)])
+empty.model <- lm(Rating ~ 1, data = raleigh_df[,c(2,4:5,9:26)])
 for.model.raleigh <- step(empty.model, scope = list(lower = empty.model, upper = full.model), direction = "forward", k = 2)
 step.model.raleigh <- step(empty.model, scope = list(lower = empty.model, upper = full.model), direction = "both", k = 2) 
+```
+
+#Random Forest Predictions for Raleigh and NYC
+```{r}
+library(randomForest)
+#Run a random forest model for Raleigh
+raleigh_df<- as.data.frame(raleigh_df)
+raleigh_df$random<- rnorm(43)
+set.seed(12345)
+rf.raleigh <- randomForest(Rating ~ ., data = raleigh_df, ntree = 250, importance = TRUE)
+varImpPlot(rf.raleigh ,
+           sort = TRUE,
+           n.var = 10,
+           main = "Top 10 - Variable Importance for Raleigh", type = 1)
+#Run a random forest model for NYC
+nyc_df <- as.data.frame(nyc_df)
+nyc_df$random<- rnorm(70)
+set.seed(12345)
+rf.nyc <- randomForest(Rating ~ ., data = nyc_df, ntree = 250, importance = TRUE)
+varImpPlot(rf.nyc,
+           sort = TRUE,
+           n.var = 10,
+           main = "Top 10 - Variable Importance for NYC", type = 1)
 ```
 
 #Boxplot
@@ -137,12 +166,4 @@ boxplot(Rating ~ Authenticity, data = nyc_df,
 boxplot(Rating ~ source, data = predictors)
 ```
 
-#not useful boxplots
-
-```{r}
-ggplot(data = nyc_df) + geom_histogram(mapping = aes(x = Rating)) + labs(x = "Rating Counts (NYC)")
-ggplot(data = raleigh_df) + geom_histogram(mapping = aes(x = Rating)) + labs(x = "Rating Counts (Raleigh)")
-ggplot(nyc_df, aes(x = Rating)) + geom_histogram(aes(y = ..density..), alpha = 0.5) + geom_density(alpha = 0.2) + labs(x = "Rating Counts (NYC), Density Plot")
-ggplot(raleigh_df, aes(x = Rating)) + geom_histogram(aes(y = ..density..), alpha = 0.5) + geom_density(alpha = 0.2) + labs(x = "Rating Counts (Raleigh), Density Plot")
-```
 
