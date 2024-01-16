@@ -14,4 +14,4 @@ We performed the following:
 - Used longitude/latitude information to visualize boba shops in Tableau.
 - Presented our statistical findings on October 30th, 2023 at the Institute for Advanced Analytics.
   
-The home page of the Xiaolongbao directory holds our Bookdown website- we hope you enjoy reading about our work!
+The home page of the Xiaolongbao directory holds our Bookdown website— we hope you enjoy reading about our work!
