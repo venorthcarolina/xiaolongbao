@@ -11,7 +11,7 @@ For our statistical side project, we provided a comprehensive study on boba shop
 We performed the following: 
 - Requested developer access to Yelp API with an application.
 - Chose Yelp API parameters for the type of review and location.
-- Used longitude/latitude information in Tableau.
+- Used longitude/latitude information to visualize boba shops in Tableau.
 - Presented our statistical findings on October 30th, 2023 at the Institute for Advanced Analytics.
   
 The home page of the Xiaolongbao directory holds our Bookdown website- we hope you enjoy reading about our work!
